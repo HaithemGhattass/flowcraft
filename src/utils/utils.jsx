@@ -45,4 +45,44 @@ export const utils = {
       y: cy * viewport.zoom + viewport.y,
     };
   },
+  /** Find the closest node to a dragging node within a snap distance */
+  findProximityTarget(draggingNode, nodes, edges, threshold = 80) {
+    let closest = null;
+    let closestDist = Infinity;
+
+    const srcX = draggingNode.x + draggingNode.width;
+    const srcY = draggingNode.y + draggingNode.height / 2;
+    const tgtX = draggingNode.x;
+    const tgtY = draggingNode.y + draggingNode.height / 2;
+
+    nodes.forEach((n) => {
+      if (n.id === draggingNode.id) return;
+
+      const alreadyConnected = edges.some(
+        (e) =>
+          (e.source === draggingNode.id && e.target === n.id) ||
+          (e.source === n.id && e.target === draggingNode.id)
+      );
+      if (alreadyConnected) return;
+
+      const nTgtX = n.x;
+      const nTgtY = n.y + n.height / 2;
+      const nSrcX = n.x + n.width;
+      const nSrcY = n.y + n.height / 2;
+
+      const distAsSource = Math.hypot(srcX - nTgtX, srcY - nTgtY);
+      if (distAsSource < threshold && distAsSource < closestDist) {
+        closestDist = distAsSource;
+        closest = { id: n.id, sourceId: draggingNode.id, targetId: n.id };
+      }
+
+      const distAsTarget = Math.hypot(tgtX - nSrcX, tgtY - nSrcY);
+      if (distAsTarget < threshold && distAsTarget < closestDist) {
+        closestDist = distAsTarget;
+        closest = { id: n.id, sourceId: n.id, targetId: draggingNode.id };
+      }
+    });
+
+    return closest;
+  },
 };

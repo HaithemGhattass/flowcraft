@@ -34,10 +34,36 @@ function ConnectionLine({ connecting, nodes, viewport }) {
     />
   );
 }
+function ProximityLine({ proximityTarget, nodes }) {
+  if (!proximityTarget) return null;
+  const src = nodes.find((n) => n.id === proximityTarget.sourceId);
+  const tgt = nodes.find((n) => n.id === proximityTarget.targetId);
+  if (!src || !tgt) return null;
+
+  // always source right handle → target left handle
+  const x1 = src.x + src.width;
+  const y1 = src.y + src.height / 2;
+  const x2 = tgt.x;
+  const y2 = tgt.y + tgt.height / 2;
+  const d = utils.bezierPath(x1, y1, x2, y2);
+
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke="#60a5fa"
+      strokeWidth={1.5}
+      strokeDasharray="5 3"
+      strokeLinecap="round"
+      style={{ pointerEvents: "none", animation: "dashFlow 0.6s linear infinite" }}
+    />
+  );
+}
+
 
 export function Canvas() {
   const { state, dispatch } = useFlowStore();
-  const { nodes, edges, viewport, connecting, selectedEdge } = state;
+  const { nodes, edges, viewport, connecting, selectedEdge, proximityTarget } = state;
   const canvasRef = useRef(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
 
@@ -65,7 +91,7 @@ export function Canvas() {
   );
 
   const { onWheel, startPan, movePan, endPan, isPanning } = useViewport(canvasRef, dispatchFn);
-  const { startDrag, moveDrag, endDrag } = useDrag(dispatch, viewport);
+  const { startDrag, moveDrag, endDrag } = useDrag(dispatch, viewport, nodes, edges); 
   const { startConnect, finishConnect, cancelConnect } = useConnect(dispatch);
 
   useEffect(() => {
@@ -80,6 +106,58 @@ export function Canvas() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [onWheel]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (moveDrag(e)) return;
+      if (isPanning.current) movePan(e, viewport);
+      if (connecting) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        dispatch({
+          type: "UPDATE_CONNECT",
+          x: e.clientX - (rect?.left ?? 0),
+          y: e.clientY - (rect?.top ?? 0),
+        });
+      }
+    };
+
+    const handleMouseUp = (e) => {
+      endDrag();
+      endPan();
+
+      // always attempt to commit a proximity edge on any drag end
+      dispatch({ type: "COMMIT_PROXIMITY_EDGE" }); // commits if target exists, clears it
+      dispatch({ type: "CLEAR_PROXIMITY_TARGET" }); // ensures it's cleared regardless
+
+      if (connecting) {
+        const droppedOnPane =
+          e.target === canvasRef.current ||
+          e.target.closest("[data-canvas-bg]") ||
+          (!e.target.closest("[data-nid]") && !e.target.closest("[data-handle]"));
+
+        if (droppedOnPane) {
+          const rect = canvasRef.current.getBoundingClientRect();
+          const pos = utils.screenToCanvas(
+            e.clientX - rect.left,
+            e.clientY - rect.top,
+            viewport
+          );
+          dispatch({ type: "DROP_CONNECT_ON_PANE", x: pos.x - 85, y: pos.y - 30 });
+        } else {
+          cancelConnect();
+        }
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [moveDrag, isPanning, movePan, viewport, connecting, dispatch, endDrag, endPan, cancelConnect]);
+
+  // remove onMouseMove and onMouseUp from the canvas <div>
 
   const onMouseDown = (e) => {
     if (e.button !== 0) return;
@@ -105,9 +183,9 @@ export function Canvas() {
   const onMouseUp = (e) => {
     endDrag();
     endPan();
+    dispatch({ type: "COMMIT_PROXIMITY_EDGE" });
 
     if (connecting) {
-      // check if dropped on pane (not on a node or handle)
       const droppedOnPane =
         e.target === canvasRef.current ||
         e.target.closest("[data-canvas-bg]") ||
@@ -115,16 +193,8 @@ export function Canvas() {
 
       if (droppedOnPane) {
         const rect = canvasRef.current.getBoundingClientRect();
-        const pos = utils.screenToCanvas(
-          e.clientX - rect.left,
-          e.clientY - rect.top,
-          viewport
-        );
-        dispatch({
-          type: "DROP_CONNECT_ON_PANE",
-          x: pos.x - 85,
-          y: pos.y - 30,
-        });
+        const pos = utils.screenToCanvas(e.clientX - rect.left, e.clientY - rect.top, viewport);
+        dispatch({ type: "DROP_CONNECT_ON_PANE", x: pos.x - 85, y: pos.y - 30 });
       } else {
         cancelConnect();
       }
@@ -153,8 +223,8 @@ export function Canvas() {
         userSelect: "none",
       }}
       onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
+      // onMouseMove={onMouseMove}
+      // onMouseUp={onMouseUp}
       onDoubleClick={onDoubleClick}
     >
       <svg
@@ -198,6 +268,9 @@ export function Canvas() {
               dispatch={dispatch}
             />
           ))}
+          <ProximityLine proximityTarget={proximityTarget} nodes={nodes} />
+          <ConnectionLine connecting={connecting} nodes={nodes} viewport={viewport} />
+
           <ConnectionLine connecting={connecting} nodes={nodes} viewport={viewport} />
         </g>
       </svg>

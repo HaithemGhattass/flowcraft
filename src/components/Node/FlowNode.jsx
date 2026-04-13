@@ -63,8 +63,15 @@ export function FlowNode({ node, viewport, onStartConnect, onFinishConnect, disp
       }}
       data-nid={node.id}
       onMouseDown={(e) => {
-        dispatch({ type: "SELECT_NODE", id: node.id, multi: e.metaKey || e.ctrlKey });
-        onDragStart(e, node.id, node.x, node.y); // ✅ use the prop
+        const isAlreadySelected = node.selected;
+        const isMultiKey = e.metaKey || e.ctrlKey;
+
+        // if node is already selected as part of a group, don't deselect others
+        if (!isAlreadySelected || isMultiKey) {
+          dispatch({ type: "SELECT_NODE", id: node.id, multi: isMultiKey });
+        }
+
+        onDragStart(e, node.id, node.x, node.y);
       }}
 
       onDoubleClick={handleDoubleClick}

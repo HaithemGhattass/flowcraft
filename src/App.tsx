@@ -7,8 +7,28 @@ function ReactFlowClone() {
 
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && !e.target.matches("input, textarea")) {
+      if (e.target.matches("input, textarea")) return;
+
+      // delete
+      if (e.key === "Delete" || e.key === "Backspace") {
         dispatch({ type: "DELETE_SELECTED" });
+      }
+
+      // copy — Ctrl+C / Cmd+C
+      if (e.key === "c" && (e.ctrlKey || e.metaKey)) {
+        dispatch({ type: "COPY_SELECTED" });
+      }
+
+      // paste — Ctrl+V / Cmd+V
+      if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+        dispatch({ type: "PASTE" });
+      }
+
+      // duplicate shortcut — Ctrl+D / Cmd+D
+      if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault(); // prevent browser bookmark dialog
+        dispatch({ type: "COPY_SELECTED" });
+        dispatch({ type: "PASTE" });
       }
     };
 
@@ -22,7 +42,15 @@ function ReactFlowClone() {
 export function App() {
   return (
     <FlowProvider>
-      <div style={{ width: "100%", height: "520px", borderRadius: 12, overflow: "hidden", border: "1px solid #0d1a2e" }}>
+      <div
+        style={{
+          width: "100%",
+          height: "520px",
+          borderRadius: 12,
+          overflow: "hidden",
+          border: "1px solid #0d1a2e",
+        }}
+      >
         <ReactFlowClone />
       </div>
     </FlowProvider>

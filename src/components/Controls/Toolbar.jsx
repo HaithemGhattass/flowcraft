@@ -71,6 +71,35 @@ export function Toolbar({ dispatch, canvasRef }) {
       >
         <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> node
       </button>
+      <button
+        style={btnBase}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          dispatch({ type: "COPY_SELECTED" });
+        }}
+        onMouseEnter={hoverIn}
+        onMouseLeave={hoverOut}
+        title="Copy selected (Ctrl+C)"
+        // dim if nothing selected
+        disabled={!state.nodes.some((n) => n.selected)}
+      >
+        ⎘ copy
+      </button>
+      {state.clipboard && (
+        <button
+          style={btnBase}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            dispatch({ type: "PASTE" });
+          }}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+          title="Paste (Ctrl+V)"
+        >
+          ⎗ paste
+        </button>
+      )}
+
       {hasSelected && (
         <button
           style={{ ...btnBase, color: "#f87171", borderColor: "#2d1515" }}
@@ -86,7 +115,7 @@ export function Toolbar({ dispatch, canvasRef }) {
             e.currentTarget.style.background = "#111827";
             e.currentTarget.style.borderColor = "#2d1515";
           }}
-      >
+        >
           ✕ delete
         </button>
       )}

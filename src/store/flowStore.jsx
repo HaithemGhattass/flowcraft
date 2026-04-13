@@ -19,6 +19,7 @@ const initialState = {
   viewport: { x: 60, y: 40, zoom: 1 },
   selectedEdge: null,
   connecting: null,
+  proximityTarget: null
 };
 
 function flowReducer(state, action) {
@@ -66,60 +67,60 @@ function flowReducer(state, action) {
       };
     }
 
-case "DELETE_SELECTED": {
-  const selectedIds = new Set(state.nodes.filter((n) => n.selected).map((n) => n.id));
+    case "DELETE_SELECTED": {
+      const selectedIds = new Set(state.nodes.filter((n) => n.selected).map((n) => n.id));
 
-  // for each deleted node, find what was feeding into it and what it was feeding out to
-  const incomingMap = {};  // deletedNodeId -> [sourceId, ...]
-  const outgoingMap = {};  // deletedNodeId -> [targetId, ...]
+      // for each deleted node, find what was feeding into it and what it was feeding out to
+      const incomingMap = {};  // deletedNodeId -> [sourceId, ...]
+      const outgoingMap = {};  // deletedNodeId -> [targetId, ...]
 
-  state.edges.forEach((e) => {
-    if (selectedIds.has(e.target)) {
-      if (!incomingMap[e.target]) incomingMap[e.target] = [];
-      incomingMap[e.target].push(e.source);
-    }
-    if (selectedIds.has(e.source)) {
-      if (!outgoingMap[e.source]) outgoingMap[e.source] = [];
-      outgoingMap[e.source].push(e.target);
-    }
-  });
-
-  // keep edges where neither endpoint is deleted
-  const survivingEdges = state.edges.filter(
-    (e) => !selectedIds.has(e.source) && !selectedIds.has(e.target) && e.id !== state.selectedEdge
-  );
-
-  // create bridging edges for every incoming->outgoing pair through deleted nodes
-  const bridgingEdges = [];
-  selectedIds.forEach((deletedId) => {
-    const sources = incomingMap[deletedId] ?? [];
-    const targets = outgoingMap[deletedId] ?? [];
-    sources.forEach((src) => {
-      targets.forEach((tgt) => {
-        // skip if this connection already exists in surviving edges or bridging edges
-        const alreadyExists =
-          survivingEdges.some((e) => e.source === src && e.target === tgt) ||
-          bridgingEdges.some((e) => e.source === src && e.target === tgt);
-        if (!alreadyExists) {
-          bridgingEdges.push({
-            id: utils.id("edge"),
-            source: src,
-            target: tgt,
-            label: "",
-            animated: false,
-          });
+      state.edges.forEach((e) => {
+        if (selectedIds.has(e.target)) {
+          if (!incomingMap[e.target]) incomingMap[e.target] = [];
+          incomingMap[e.target].push(e.source);
+        }
+        if (selectedIds.has(e.source)) {
+          if (!outgoingMap[e.source]) outgoingMap[e.source] = [];
+          outgoingMap[e.source].push(e.target);
         }
       });
-    });
-  });
 
-  return {
-    ...state,
-    nodes: state.nodes.filter((n) => !n.selected),
-    edges: [...survivingEdges, ...bridgingEdges],
-    selectedEdge: null,
-  };
-}
+      // keep edges where neither endpoint is deleted
+      const survivingEdges = state.edges.filter(
+        (e) => !selectedIds.has(e.source) && !selectedIds.has(e.target) && e.id !== state.selectedEdge
+      );
+
+      // create bridging edges for every incoming->outgoing pair through deleted nodes
+      const bridgingEdges = [];
+      selectedIds.forEach((deletedId) => {
+        const sources = incomingMap[deletedId] ?? [];
+        const targets = outgoingMap[deletedId] ?? [];
+        sources.forEach((src) => {
+          targets.forEach((tgt) => {
+            // skip if this connection already exists in surviving edges or bridging edges
+            const alreadyExists =
+              survivingEdges.some((e) => e.source === src && e.target === tgt) ||
+              bridgingEdges.some((e) => e.source === src && e.target === tgt);
+            if (!alreadyExists) {
+              bridgingEdges.push({
+                id: utils.id("edge"),
+                source: src,
+                target: tgt,
+                label: "",
+                animated: false,
+              });
+            }
+          });
+        });
+      });
+
+      return {
+        ...state,
+        nodes: state.nodes.filter((n) => !n.selected),
+        edges: [...survivingEdges, ...bridgingEdges],
+        selectedEdge: null,
+      };
+    }
     case "START_CONNECT":
       return { ...state, connecting: action.connecting };
 
@@ -227,6 +228,38 @@ case "DELETE_SELECTED": {
         connecting: null,
       };
     }
+    case "SET_PROXIMITY_TARGET":
+      return { ...state, proximityTarget: action.target }; // { sourceId, targetId } or null
+
+    case "COMMIT_PROXIMITY_EDGE": {
+      if (!state.proximityTarget) return state;
+      const { sourceId, targetId } = state.proximityTarget;
+
+      const exists = state.edges.some(
+        (e) =>
+          (e.source === sourceId && e.target === targetId) ||
+          (e.source === targetId && e.target === sourceId)
+      );
+
+      if (exists) return { ...state, proximityTarget: null }; // clear but don't duplicate
+
+      const newEdge = {
+        id: utils.id("edge"),
+        source: sourceId,
+        target: targetId,
+        label: "",
+        animated: false,
+      };
+
+      return {
+        ...state,
+        edges: [...state.edges, newEdge],
+        proximityTarget: null, // ← always clear
+      };
+    }
+    case "CLEAR_PROXIMITY_TARGET":
+      return { ...state, proximityTarget: null };
+
     default:
       return state;
   }

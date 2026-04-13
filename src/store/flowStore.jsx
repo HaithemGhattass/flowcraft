@@ -19,7 +19,8 @@ const initialState = {
   viewport: { x: 60, y: 40, zoom: 1 },
   selectedEdge: null,
   connecting: null,
-  proximityTarget: null
+  proximityTarget: null,
+  clipboard: null,
 };
 
 function flowReducer(state, action) {
@@ -272,6 +273,76 @@ function flowReducer(state, action) {
         edges: state.edges.filter((e) => e.id !== action.id),
         selectedEdge: state.selectedEdge === action.id ? null : state.selectedEdge,
       };
+    }
+    case "COPY_SELECTED": {
+      const selectedNodes = state.nodes.filter((n) => n.selected);
+      if (selectedNodes.length === 0) return state;
+
+      const selectedIds = new Set(selectedNodes.map((n) => n.id));
+
+      // only copy edges where BOTH endpoints are selected
+      const selectedEdges = state.edges.filter(
+        (e) => selectedIds.has(e.source) && selectedIds.has(e.target)
+      );
+
+      return {
+        ...state,
+        clipboard: { nodes: selectedNodes, edges: selectedEdges },
+      };
+    }
+
+    case "PASTE": {
+      if (!state.clipboard || state.clipboard.nodes.length === 0) return state;
+
+      const OFFSET = 30; // paste offset so it doesn't land exactly on top
+
+      // map old ids to new ids
+      const idMap = {};
+      state.clipboard.nodes.forEach((n) => {
+        idMap[n.id] = utils.id("node");
+      });
+
+      const newNodes = state.clipboard.nodes.map((n) => ({
+        ...n,
+        id: idMap[n.id],
+        x: n.x + OFFSET,
+        y: n.y + OFFSET,
+        selected: true, // select pasted nodes
+      }));
+
+      const newEdges = state.clipboard.edges.map((e) => ({
+        ...e,
+        id: utils.id("edge"),
+        source: idMap[e.source],
+        target: idMap[e.target],
+      }));
+
+      // deselect existing nodes
+      const existingNodes = state.nodes.map((n) => ({ ...n, selected: false }));
+
+      return {
+        ...state,
+        nodes: [...existingNodes, ...newNodes],
+        edges: [...state.edges, ...newEdges],
+        selectedEdge: null,
+      };
+    }
+    case "MOVE_SELECTED_NODES": {
+      const nodes = state.nodes.map((n) =>
+        n.selected
+          ? { ...n, x: n.x + action.dx, y: n.y + action.dy }
+          : n
+      );
+      return { ...state, nodes };
+    }
+    case "MOVE_SELECTED_NODES_ABSOLUTE": {
+      const nodes = state.nodes.map((n) => {
+        if (!n.selected) return n;
+        const start = action.positions[n.id];
+        if (!start) return n;
+        return { ...n, x: start.x + action.dx, y: start.y + action.dy };
+      });
+      return { ...state, nodes };
     }
     default:
       return state;

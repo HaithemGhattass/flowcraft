@@ -10,6 +10,7 @@ import { Toolbar } from "../Controls/Toolbar";
 import { MiniMap } from "../MiniMap/MiniMap";
 import { StatusBar } from "../Controls/StatusBar";
 import { utils } from "../../utils/utils";
+import { EdgeToolbar } from "../Edge/EdgeToolbar";
 
 function ConnectionLine({ connecting, nodes, viewport }) {
   if (!connecting || connecting.mx === undefined) return null;
@@ -91,7 +92,7 @@ export function Canvas() {
   );
 
   const { onWheel, startPan, movePan, endPan, isPanning } = useViewport(canvasRef, dispatchFn);
-  const { startDrag, moveDrag, endDrag } = useDrag(dispatch, viewport, nodes, edges); 
+  const { startDrag, moveDrag, endDrag } = useDrag(dispatch, viewport, nodes, edges);
   const { startConnect, finishConnect, cancelConnect } = useConnect(dispatch);
 
   useEffect(() => {
@@ -166,40 +167,22 @@ export function Canvas() {
       startPan(e, viewport);
     }
   };
+  const selectedEdgeData = useMemo(() => {
+    if (!selectedEdge) return null;
+    const edge = edges.find((e) => e.id === selectedEdge);
+    if (!edge) return null;
+    const src = nodes.find((n) => n.id === edge.source);
+    const tgt = nodes.find((n) => n.id === edge.target);
+    if (!src || !tgt) return null;
+    return {
+      edge,
+      mid: {
+        x: (src.x + src.width + tgt.x) / 2,
+        y: (src.y + src.height / 2 + tgt.y + tgt.height / 2) / 2,
+      },
+    };
+  }, [selectedEdge, edges, nodes]);
 
-  const onMouseMove = (e) => {
-    if (moveDrag(e)) return;
-    if (isPanning.current) movePan(e, viewport);
-    if (connecting) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      dispatch({
-        type: "UPDATE_CONNECT",
-        x: e.clientX - (rect?.left ?? 0),
-        y: e.clientY - (rect?.top ?? 0),
-      });
-    }
-  };
-
-  const onMouseUp = (e) => {
-    endDrag();
-    endPan();
-    dispatch({ type: "COMMIT_PROXIMITY_EDGE" });
-
-    if (connecting) {
-      const droppedOnPane =
-        e.target === canvasRef.current ||
-        e.target.closest("[data-canvas-bg]") ||
-        (!e.target.closest("[data-nid]") && !e.target.closest("[data-handle]"));
-
-      if (droppedOnPane) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        const pos = utils.screenToCanvas(e.clientX - rect.left, e.clientY - rect.top, viewport);
-        dispatch({ type: "DROP_CONNECT_ON_PANE", x: pos.x - 85, y: pos.y - 30 });
-      } else {
-        cancelConnect();
-      }
-    }
-  };
   const onDoubleClick = (e) => {
     if (e.target === canvasRef.current || e.target.closest("[data-canvas-bg]")) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -209,6 +192,7 @@ export function Canvas() {
   };
 
   const gridSize = 24 * viewport.zoom;
+  const edgeToolbarRef = useRef(null);
 
   return (
     <div
@@ -256,7 +240,10 @@ export function Canvas() {
         <rect width="100%" height="100%" fill="url(#grid-minor)" />
         <rect width="100%" height="100%" fill="url(#grid-major)" />
 
-        <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
+        <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}
+          style={{ pointerEvents: "all" }} // ← add this, opts the edge layer back in
+
+        >
           <style>{`@keyframes dashFlow { to { stroke-dashoffset: -18; } }`}</style>
           {edges.map((edge) => (
             <FlowEdge
@@ -266,8 +253,14 @@ export function Canvas() {
               viewport={viewport}
               selectedEdge={selectedEdge}
               dispatch={dispatch}
+              onEditRequest={() => {
+                // first select the edge, then trigger edit on next tick after toolbar mounts
+                dispatch({ type: "SELECT_EDGE", id: edge.id });
+                setTimeout(() => edgeToolbarRef.current?.triggerEdit(), 0);
+              }}
             />
           ))}
+
           <ProximityLine proximityTarget={proximityTarget} nodes={nodes} />
           <ConnectionLine connecting={connecting} nodes={nodes} viewport={viewport} />
 
@@ -286,6 +279,17 @@ export function Canvas() {
           dispatch={dispatch}
         />
       ))}
+      {selectedEdgeData && (
+        <EdgeToolbar
+          ref={edgeToolbarRef}
+          edge={selectedEdgeData.edge}
+          mid={selectedEdgeData.mid}
+          viewport={viewport}
+          dispatch={dispatch}
+        />
+      )}
+
+
 
       <Toolbar dispatch={dispatch} canvasRef={canvasRef} />
       <Controls dispatch={dispatch} canvasRef={canvasRef} />

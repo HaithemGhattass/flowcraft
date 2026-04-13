@@ -259,7 +259,20 @@ function flowReducer(state, action) {
     }
     case "CLEAR_PROXIMITY_TARGET":
       return { ...state, proximityTarget: null };
+    case "RENAME_EDGE": {
+      const edges = state.edges.map((e) =>
+        e.id === action.id ? { ...e, label: action.label } : e
+      );
+      return { ...state, edges };
+    }
 
+    case "DELETE_EDGE": {
+      return {
+        ...state,
+        edges: state.edges.filter((e) => e.id !== action.id),
+        selectedEdge: state.selectedEdge === action.id ? null : state.selectedEdge,
+      };
+    }
     default:
       return state;
   }

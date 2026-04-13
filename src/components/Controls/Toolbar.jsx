@@ -90,19 +90,6 @@ export function Toolbar({ dispatch, canvasRef }) {
           ✕ delete
         </button>
       )}
-      {state.selectedEdge && (
-        <button
-          style={{ ...btnBase, color: "#a78bfa" }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            dispatch({ type: "TOGGLE_EDGE_ANIMATED", id: state.selectedEdge });
-          }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          ⟳ animate
-        </button>
-      )}
     </div>
   );
 }

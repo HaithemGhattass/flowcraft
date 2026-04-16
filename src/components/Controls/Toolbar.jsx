@@ -10,9 +10,8 @@ export function Toolbar({ dispatch, canvasRef }) {
     const cx = rect ? rect.width / 2 : 400;
     const cy = rect ? rect.height / 2 : 300;
     const pos = utils.screenToCanvas(cx, cy, state.viewport);
-    dispatch({ type: "ADD_NODE", x: pos.x - 85, y: pos.y - 30, label: "New Node" });
+    dispatch({ type: "ADD_NODE", x: pos.x - 85, y: pos.y - 30, label: "Transform", nodeType: "transform" });
   };
-
   const btnBase = {
     height: 30,
     padding: "0 12px",

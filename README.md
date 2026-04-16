@@ -1,6 +1,6 @@
 # FlowCraft
 
-A production-grade React Flow clone with clean architecture and specialized node types for data flow visualization.
+A production-grade with clean architecture and specialized node types for data flow visualization.
 
 ## Features
 

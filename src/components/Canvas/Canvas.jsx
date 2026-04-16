@@ -272,6 +272,8 @@ export function Canvas() {
         <FlowNode
           key={node.id}
           node={node}
+          nodes={nodes}    // ← add
+          edges={edges}    // ← add
           viewport={viewport}
           onDragStart={startDrag}
           onStartConnect={(e, nid, ht, ax, ay) => startConnect(e, nid, ht, ax, ay)}

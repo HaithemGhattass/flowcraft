@@ -1,108 +1,80 @@
 import { useFlowStore } from "../../store/flowStore";
 import { utils } from "../../utils/utils";
+import { StatusBar } from "./StatusBar";
+
+function DockButton({ label, title, onMouseDown }) {
+  return (
+    <button
+      className="control-dock__button"
+      type="button"
+      title={title}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onMouseDown?.();
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function Controls({ dispatch, canvasRef }) {
   const { state } = useFlowStore();
   const { viewport } = state;
 
-  const zoom = (factor) => {
+  const setZoom = (newZoom) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
+    const clampedZoom = utils.clamp(newZoom, utils.MIN_ZOOM, utils.MAX_ZOOM);
+
     const cx = rect.width / 2;
     const cy = rect.height / 2;
-    const newZoom = utils.clamp(viewport.zoom * factor, 0.1, 4);
-    const scale = newZoom / viewport.zoom;
+    const scale = clampedZoom / viewport.zoom;
+
     dispatch({
       type: "SET_VIEWPORT",
       viewport: {
-        zoom: newZoom,
+        zoom: clampedZoom,
         x: cx - (cx - viewport.x) * scale,
         y: cy - (cy - viewport.y) * scale,
       },
     });
   };
 
-  const btnStyle = () => ({
-    width: 32,
-    height: 32,
-    background: "#111827",
-    border: "1px solid #1f2937",
-    borderRadius: 6,
-    color: "#9ca3af",
-    fontSize: 16,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.12s",
-    fontFamily: "monospace",
-    userSelect: "none",
-  });
+  const zoom = (factor) => {
+    setZoom(utils.clamp(viewport.zoom * factor, utils.MIN_ZOOM, utils.MAX_ZOOM));
+  };
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: 80,
-        left: 16,
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-        zIndex: 100,
-      }}
-    >
-      {[
-        { label: "+", action: () => zoom(1.2), title: "Zoom in" },
-        { label: "−", action: () => zoom(1 / 1.2), title: "Zoom out" },
-        {
-          label: "⊡",
-          action: () =>
+    <div className="control-dock">
+      <div className="control-dock__zoom">
+        <DockButton label="−" title="Zoom out" onMouseDown={() => zoom(1 / 1.15)} />
+        <input
+          className="control-dock__slider"
+          type="range"
+          min={utils.MIN_ZOOM * 100}
+          max={utils.MAX_ZOOM * 100}
+          step="1"
+          value={viewport.zoom * 100}
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => setZoom(Number(e.target.value) / 100)}
+        />
+        <DockButton label="+" title="Zoom in" onMouseDown={() => zoom(1.15)} />
+        <div className="control-dock__percent">{Math.round(viewport.zoom * 100)}%</div>
+        <DockButton
+          label="Fit"
+          title="Fit workflow"
+          onMouseDown={() =>
             dispatch({
               type: "FIT_VIEW",
               w: canvasRef.current?.offsetWidth ?? 800,
               h: canvasRef.current?.offsetHeight ?? 600,
-            }),
-          title: "Fit view",
-        },
-        { label: "1", action: () => dispatch({ type: "SET_VIEWPORT", viewport: { ...viewport, zoom: 1 } }), title: "Reset zoom" },
-      ].map(({ label, action, title }) => (
-        <button
-          key={label}
-          title={title}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            action();
-          }}
-          style={btnStyle()}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#1f2937";
-            e.currentTarget.style.color = "#e5e7eb";
-            e.currentTarget.style.borderColor = "#374151";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#111827";
-            e.currentTarget.style.color = "#9ca3af";
-            e.currentTarget.style.borderColor = "#1f2937";
-          }}
-        >
-          {label}
-        </button>
-      ))}
-      <div
-        style={{
-          marginTop: 4,
-          background: "#111827",
-          border: "1px solid #1f2937",
-          borderRadius: 6,
-          padding: "4px 6px",
-          color: "#4b5563",
-          fontSize: 10,
-          fontFamily: "monospace",
-          textAlign: "center",
-        }}
-      >
-        {Math.round(viewport.zoom * 100)}%
+            })
+          }
+        />
       </div>
+      <StatusBar state={state} />
     </div>
   );
 }

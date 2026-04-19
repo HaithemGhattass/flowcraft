@@ -1,8 +1,8 @@
-import { NODE_COLORS } from "../Node/FlowNode";
+import { getNodeMeta } from "../../config/nodeTypes";
 
 export function MiniMap({ nodes, viewport, canvasW, canvasH }) {
-  const mapW = 160;
-  const mapH = 100;
+  const mapW = 100;
+  const mapH = 70;
 
   if (nodes.length === 0) return null;
 
@@ -32,12 +32,12 @@ export function MiniMap({ nodes, viewport, canvasW, canvasH }) {
     <div
       style={{
         position: "absolute",
-        bottom: 80,
+        bottom: 20,
         right: 16,
         width: mapW,
         height: mapH,
-        background: "#050d1a",
-        border: "1px solid #1e2d3d",
+        background: "#fffffffa",
+        border: "1px solid #e0e5ee",
         borderRadius: 8,
         overflow: "hidden",
         zIndex: 100,
@@ -48,7 +48,8 @@ export function MiniMap({ nodes, viewport, canvasW, canvasH }) {
           const p = toMap(n.x, n.y);
           const w = (n.width / bw) * mapW;
           const h = (n.height / bh) * mapH;
-          const c = NODE_COLORS[n.type] ?? NODE_COLORS.default;
+          const meta = getNodeMeta(n.type);
+          
           return (
             <rect
               key={n.id}
@@ -57,7 +58,7 @@ export function MiniMap({ nodes, viewport, canvasW, canvasH }) {
               width={Math.max(w, 4)}
               height={Math.max(h, 3)}
               rx={1.5}
-              fill={c.border}
+              fill={meta.border}
               opacity={n.selected ? 1 : 0.6}
             />
           );
@@ -74,19 +75,7 @@ export function MiniMap({ nodes, viewport, canvasW, canvasH }) {
           opacity={0.7}
         />
       </svg>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 3,
-          right: 6,
-          fontSize: 8,
-          color: "#1e3a5f",
-          fontFamily: "monospace",
-          userSelect: "none",
-        }}
-      >
-        minimap
-      </div>
+     
     </div>
   );
 }

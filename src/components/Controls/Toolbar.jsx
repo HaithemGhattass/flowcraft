@@ -1,108 +1,69 @@
 import { useFlowStore } from "../../store/flowStore";
-import { utils } from "../../utils/utils";
 
-export function Toolbar({ dispatch, canvasRef }) {
-  const { state } = useFlowStore();
-  const hasSelected = state.nodes.some((n) => n.selected) || state.selectedEdge;
-
-  const addNode = () => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const cx = rect ? rect.width / 2 : 400;
-    const cy = rect ? rect.height / 2 : 300;
-    const pos = utils.screenToCanvas(cx, cy, state.viewport);
-    dispatch({ type: "ADD_NODE", x: pos.x - 85, y: pos.y - 30, label: "New Node" });
-  };
-
-  const btnBase = {
-    height: 30,
-    padding: "0 12px",
-    background: "#111827",
-    border: "1px solid #1f2937",
-    borderRadius: 6,
-    color: "#9ca3af",
-    fontSize: 11,
-    fontFamily: "'JetBrains Mono', monospace",
-    cursor: "pointer",
-    letterSpacing: "0.05em",
-    userSelect: "none",
-    transition: "all 0.12s",
-    display: "flex",
-    alignItems: "center",
-    gap: 5,
-  };
-
-  const hoverIn = (e) => {
-    e.currentTarget.style.background = "#1f2937";
-    e.currentTarget.style.color = "#e5e7eb";
-    e.currentTarget.style.borderColor = "#374151";
-  };
-
-  const hoverOut = (e) => {
-    e.currentTarget.style.background = "#111827";
-    e.currentTarget.style.color = "#9ca3af";
-    e.currentTarget.style.borderColor = "#1f2937";
-  };
-
+function ActionButton({ label, title, disabled, onMouseDown }) {
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 12,
-        left: "50%",
-        transform: "translateX(-50%)",
-        display: "flex",
-        gap: 6,
-        background: "#050d1a",
-        border: "1px solid #1e2d3d",
-        borderRadius: 10,
-        padding: "6px 8px",
-        zIndex: 100,
-        backdropFilter: "blur(10px)",
+    <button
+      className="canvas-action"
+      type="button"
+      title={title}
+      disabled={disabled}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!disabled) onMouseDown?.();
       }}
     >
+      {label}
+    </button>
+  );
+}
+
+export function Toolbar({ dispatch }) {
+  const { state } = useFlowStore();
+  const selectedNodes = state.nodes.filter((n) => n.selected);
+  const hasSelection = selectedNodes.length > 0 || Boolean(state.selectedEdge);
+
+  return (
+    <div className="canvas-toolbar">
+      <div className="canvas-toolbar__left">
+        <ActionButton
+          label="Copy"
+          title="Copy selected nodes"
+          disabled={selectedNodes.length === 0}
+          onMouseDown={() => dispatch({ type: "COPY_SELECTED" })}
+        />
+        <ActionButton
+          label="Paste"
+          title="Paste copied nodes"
+          disabled={!state.clipboard}
+          onMouseDown={() => dispatch({ type: "PASTE" })}
+        />
+        <ActionButton
+          label="Duplicate"
+          title="Duplicate selected nodes"
+          disabled={selectedNodes.length === 0}
+          onMouseDown={() => dispatch({ type: "DUPLICATE_SELECTED" })}
+        />
+        <ActionButton
+          label="Delete"
+          title="Delete selected nodes or edge"
+          disabled={!hasSelection}
+          onMouseDown={() => dispatch({ type: "DELETE_SELECTED" })}
+        />
+      </div>
+
       <button
-        style={btnBase}
+        className={`run-workflow-button${state.isRunning ? " is-running" : ""}`}
+        type="button"
         onMouseDown={(e) => {
           e.stopPropagation();
-          addNode();
+          e.preventDefault();
+          dispatch({ type: "TOGGLE_RUN_STATE" });
         }}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
       >
-        <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> node
+        <span className="run-workflow-button__icon">{state.isRunning ? "■" : "▷"}</span>
+        <span>{state.isRunning ? "Running..." : "Run Workflow"}</span>
       </button>
-      {hasSelected && (
-        <button
-          style={{ ...btnBase, color: "#f87171", borderColor: "#2d1515" }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            dispatch({ type: "DELETE_SELECTED" });
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#1f0505";
-            e.currentTarget.style.borderColor = "#7f1d1d";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#111827";
-            e.currentTarget.style.borderColor = "#2d1515";
-          }}
-      >
-          ✕ delete
-        </button>
-      )}
-      {state.selectedEdge && (
-        <button
-          style={{ ...btnBase, color: "#a78bfa" }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            dispatch({ type: "TOGGLE_EDGE_ANIMATED", id: state.selectedEdge });
-          }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          ⟳ animate
-        </button>
-      )}
     </div>
   );
 }

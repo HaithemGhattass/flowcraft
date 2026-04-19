@@ -11,9 +11,14 @@ export function useViewport(canvasRef, dispatch) {
       const rect = canvasRef.current.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const delta = e.ctrlKey ? e.deltaY * 0.01 : e.deltaY * 0.001;
+      const sensitivity = e.ctrlKey ? 0.0035 : 0.0016;
       dispatch((state) => {
-        const newZoom = utils.clamp(state.viewport.zoom * (1 - delta), 0.1, 4);
+        const factor = Math.exp(-e.deltaY * sensitivity);
+        const newZoom = utils.clamp(
+          state.viewport.zoom * factor,
+          utils.MIN_ZOOM,
+          utils.MAX_ZOOM
+        );
         const scale = newZoom / state.viewport.zoom;
         return {
           type: "SET_VIEWPORT",

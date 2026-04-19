@@ -115,6 +115,10 @@ function App() {
 - **Scroll wheel**: Zoom in/out
 - **Drag canvas**: Pan view
 
+## Screenshots
+
+<img width="1512" height="828" alt="Screenshot 2026-04-19 at 1 42 57 AM" src="https://github.com/user-attachments/assets/6348f41d-df06-4fc0-80e7-d58556940710" />
+
 ## Contributing
 
 1. Fork the repository

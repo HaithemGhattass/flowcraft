@@ -1,38 +1,54 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getNodeMeta } from "../../config/nodeTypes";
+import { utils } from "../../utils/utils";
 import { Handle } from "../Handle/Handle";
 import { NodeResizer } from "./NodeResizer";
-import { utils } from "../../utils/utils";
-export const NODE_COLORS = {
-  initial:   { bg: "#071a34", border: "#1d4ed8", accent: "#60a5fa", label: "#93c5fd" },
-  transform: { bg: "#1e1030", border: "#7c3aed", accent: "#a78bfa", label: "#c4b5fd" },
-  branch:    { bg: "#1f1505", border: "#b45309", accent: "#fbbf24", label: "#fde68a" },
-  join:      { bg: "#052e1c", border: "#059669", accent: "#34d399", label: "#6ee7b7" },
-  output:    { bg: "#0d2e1a", border: "#22c55e", accent: "#4ade80", label: "#86efac" },
-};
 
 const HANDLE_VISIBILITY = {
-  initial:   { target: false, source: true  },
-  transform: { target: true,  source: true  },
-  branch:    { target: true,  source: true  },
-  join:      { target: true,  source: true  },
-  output:    { target: true,  source: false },
+  initial: { target: false, source: true },
+  transform: { target: true, source: true },
+  branch: { target: true, source: true },
+  join: { target: true, source: true },
+  output: { target: true, source: false },
 };
 
-const NODE_TYPE_OPTIONS = [
-  { type: "initial",   color: "#60a5fa" },
-  { type: "transform", color: "#a78bfa" },
-  { type: "branch",    color: "#fbbf24" },
-  { type: "join",      color: "#34d399" },
-  { type: "output",    color: "#4ade80" },
-];
-const NODE_TYPES = ["input", "default", "output"];
+const NODE_TYPE_OPTIONS = ["initial", "transform", "join", "branch", "output"];
 
-export function FlowNode({ node, viewport, onStartConnect, onFinishConnect, onDragStart, dispatch, nodes, edges }) {
+function NodeAction({ label, onMouseDown, danger = false, scale = 1 }) {
+  return (
+    <button
+      type="button"
+      className={`flow-node__action${danger ? " is-danger" : ""}`}
+      style={{
+        padding: `${7 * scale}px ${10 * scale}px`,
+        borderRadius: 10 * scale,
+        fontSize: 0.72 * scale + "rem",
+      }}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onMouseDown?.();
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function FlowNode({
+  node,
+  viewport,
+  onStartConnect,
+  onFinishConnect,
+  onDragStart,
+  dispatch,
+  nodes,
+  edges,
+}) {
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(node.label);
   const inputRef = useRef(null);
-
-  const colors = NODE_COLORS[node.type] ?? NODE_COLORS.transform;
+  const meta = getNodeMeta(node.type);
   const visibility = HANDLE_VISIBILITY[node.type] ?? { target: true, source: true };
   const sourceSaturated = utils.isHandleSaturated(node.id, "source", nodes, edges);
   const targetSaturated = utils.isHandleSaturated(node.id, "target", nodes, edges);
@@ -41,121 +57,190 @@ export function FlowNode({ node, viewport, onStartConnect, onFinishConnect, onDr
   const sy = node.y * viewport.zoom + viewport.y;
   const sw = node.width * viewport.zoom;
   const sh = node.height * viewport.zoom;
+  const uiScale = utils.clamp(viewport.zoom, 0.35, 1.8);
+  const nodePaddingX = 14 * uiScale;
+  const nodeGap = 12 * uiScale;
+  const iconSize = 36 * uiScale;
+  const iconRadius = 11 * uiScale;
+  const iconFont = 18 * uiScale;
+  const titleSize = 16 * uiScale;
+  const metaSize = 12 * uiScale;
+  const buttonSize = 28 * uiScale;
+  const buttonFont = 13 * uiScale;
+  const inputHeight = 34 * uiScale;
+  const inputFont = 14 * uiScale;
+  const switcherScale = utils.clamp(viewport.zoom, 0.5, 1.25);
+  const showMeta = viewport.zoom >= 0.58;
 
-  useEffect(() => { setLabel(node.label); }, [node.label]);
-  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+  useEffect(() => {
+    setLabel(node.label);
+  }, [node.label]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
 
   const commitEdit = () => {
     setEditing(false);
-    dispatch({ type: "RENAME_NODE", id: node.id, label });
+    dispatch({ type: "RENAME_NODE", id: node.id, label: label.trim() || meta.label });
   };
 
   return (
     <div
       data-nid={node.id}
+      className={`flow-node${node.selected ? " is-selected" : ""}`}
       style={{
-        position: "absolute", left: sx, top: sy, width: sw, height: sh,
-        background: colors.bg,
-        border: `1.5px solid ${node.selected ? colors.accent : colors.border}`,
-        borderRadius: 8, cursor: "grab", userSelect: "none",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        left: sx,
+        top: sy,
+        minWidth: sw,
+        height: sh,
+        padding: `0 ${nodePaddingX}px`,
+        gap: nodeGap,
+        borderRadius: 16 * uiScale,
+        borderColor: node.selected ? meta.accent : "#d9dee7",
         boxShadow: node.selected
-          ? `0 0 0 2px ${colors.accent}44, 0 4px 20px rgba(0,0,0,0.5)`
-          : "0 2px 8px rgba(0,0,0,0.4)",
-        transition: "border-color 0.15s, box-shadow 0.15s",
-        zIndex: node.selected ? 20 : 10,
+          ? "0 18px 40px rgba(15, 23, 42, 0.12)"
+          : "0 10px 24px rgba(15, 23, 42, 0.06)",
       }}
       onMouseDown={(e) => {
         const isMultiKey = e.metaKey || e.ctrlKey;
-        if (!node.selected || isMultiKey)
+        if (!node.selected || isMultiKey) {
           dispatch({ type: "SELECT_NODE", id: node.id, multi: isMultiKey });
+        }
         onDragStart(e, node.id, node.x, node.y);
       }}
-      onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        setEditing(true);
+      }}
     >
-      {/* type badge */}
-      <div style={{
-        position: "absolute", top: -9, left: 10, fontSize: 9,
-        fontFamily: "'JetBrains Mono', monospace", color: colors.accent,
-        background: colors.bg, padding: "0 6px", letterSpacing: "0.12em",
-        textTransform: "uppercase", borderRadius: 3,
-        border: `1px solid ${colors.border}`, lineHeight: "16px",
-      }}>
-        {node.type}
+      <div
+        className="flow-node__icon"
+        style={{
+          color: meta.accent,
+          background: meta.tint,
+          borderColor: meta.border,
+          width: iconSize,
+          height: iconSize,
+          minWidth: iconSize,
+          borderRadius: iconRadius,
+          fontSize: iconFont,
+        }}
+      >
+        {meta.glyph}
       </div>
 
-      {editing ? (
-        <input
-          ref={inputRef} value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter") commitEdit();
-            if (e.key === "Escape") { setLabel(node.label); setEditing(false); }
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            background: "transparent", border: "none", outline: "none",
-            color: colors.label, fontFamily: "'JetBrains Mono', monospace",
-            fontSize: Math.max(9, 13 * viewport.zoom), fontWeight: 500,
-            textAlign: "center", width: "80%",
-          }}
-        />
-      ) : (
-        <span style={{
-          color: colors.label, fontFamily: "'JetBrains Mono', monospace",
-          fontSize: Math.max(9, 13 * viewport.zoom), fontWeight: 500,
-          letterSpacing: "0.02em", pointerEvents: "none", maxWidth: "85%",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
-          {node.label}
-        </span>
-      )}
+      <div className="flow-node__body">
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={label}
+            className="flow-node__input"
+            style={{ height: inputHeight, fontSize: inputFont, borderRadius: 10 * uiScale, padding: `0 ${10 * uiScale}px` }}
+            onChange={(e) => setLabel(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") commitEdit();
+              if (e.key === "Escape") {
+                setLabel(node.label);
+                setEditing(false);
+              }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <>
+            <div className="flow-node__label" style={{ fontSize: titleSize }}>{node.label}</div>
+            {showMeta && (
+              <div className="flow-node__meta" style={{ fontSize: metaSize }}>
+                {meta.description}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* type switcher */}
+      <div className="flow-node__right" style={{ gap: 8 * uiScale }}>
+        <button
+          type="button"
+          className="flow-node__play"
+          title="Highlight node"
+          style={{ width: buttonSize, height: buttonSize, borderRadius: 9 * uiScale, fontSize: buttonFont }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            dispatch({ type: "SELECT_NODE", id: node.id, multi: false });
+          }}
+        >
+          ▷
+        </button>
+        <button
+          type="button"
+          className="flow-node__delete"
+          title="Delete node"
+          style={{ width: buttonSize, height: buttonSize, borderRadius: 9 * uiScale, fontSize: buttonFont }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            dispatch({ type: "SELECT_NODE", id: node.id, multi: false });
+            dispatch({ type: "DELETE_SELECTED" });
+          }}
+        >
+          ⌫
+        </button>
+      </div>
+
       {node.selected && (
-        <div style={{
-          position: "absolute", bottom: -28, left: "50%", transform: "translateX(-50%)",
-          display: "flex", gap: 3, background: "#050d1a", border: "1px solid #1e2d3d",
-          borderRadius: 6, padding: "3px 5px", zIndex: 50,
-        }}>
-          {NODE_TYPE_OPTIONS.map(({ type: t, color }) => (
-            <button
-              key={t}
-              onMouseDown={(e) => { e.stopPropagation(); dispatch({ type: "CHANGE_NODE_TYPE", id: node.id, nodeType: t }); }}
-              style={{
-                height: 18, padding: "0 7px",
-                background: node.type === t ? color + "33" : "transparent",
-                border: `1px solid ${node.type === t ? color : "#1e2d3d"}`,
-                borderRadius: 4, color: node.type === t ? color : "#4b6a8a",
-                fontSize: 9, fontFamily: "monospace", letterSpacing: "0.08em",
-                cursor: "pointer", textTransform: "uppercase", transition: "all 0.1s",
-              }}
-              onMouseEnter={(e) => { if (node.type !== t) { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; } }}
-              onMouseLeave={(e) => { if (node.type !== t) { e.currentTarget.style.borderColor = "#1e2d3d"; e.currentTarget.style.color = "#4b6a8a"; } }}
-            >
-              {t}
-            </button>
-          ))}
+        <div
+          className="flow-node__type-switcher"
+          style={{
+            bottom: -44 * switcherScale,
+            gap: 6 * switcherScale,
+            padding: 8 * switcherScale,
+            borderRadius: 16 * switcherScale,
+          }}
+        >
+          {NODE_TYPE_OPTIONS.map((nodeType) => {
+            const option = getNodeMeta(nodeType);
+            return (
+              <NodeAction
+                key={nodeType}
+                label={option.shortLabel}
+                onMouseDown={() => dispatch({ type: "CHANGE_NODE_TYPE", id: node.id, nodeType })}
+                danger={nodeType === "output" && node.type !== "output"}
+                scale={switcherScale}
+              />
+            );
+          })}
         </div>
       )}
 
       {visibility.target && (
         <Handle
-          nodeId={node.id} type="target" viewport={viewport}
-          cx={node.x} cy={node.y + node.height / 2}
-          onStartConnect={onStartConnect} onFinishConnect={onFinishConnect}
+          nodeId={node.id}
+          type="target"
+          viewport={viewport}
+          cx={node.x + node.width / 2}
+          cy={node.y}
+          onStartConnect={onStartConnect}
+          onFinishConnect={onFinishConnect}
           saturated={targetSaturated}
+          accent={meta.accent}
         />
       )}
+
       {visibility.source && (
         <Handle
-          nodeId={node.id} type="source" viewport={viewport}
-          cx={node.x + node.width} cy={node.y + node.height / 2}
-          onStartConnect={onStartConnect} onFinishConnect={onFinishConnect}
+          nodeId={node.id}
+          type="source"
+          viewport={viewport}
+          cx={node.x + node.width / 2}
+          cy={node.y + node.height}
+          onStartConnect={onStartConnect}
+          onFinishConnect={onFinishConnect}
           saturated={sourceSaturated}
+          accent={meta.accent}
         />
       )}
 

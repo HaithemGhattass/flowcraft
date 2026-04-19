@@ -1,4 +1,9 @@
+import { getNodeMeta } from "../config/nodeTypes";
+
 export const utils = {
+  MIN_ZOOM: 0.35,
+  MAX_ZOOM: 1.8,
+
   id: (() => {
     let n = 1;
     return (prefix = "id") => `${prefix}_${n++}_${Math.random().toString(36).slice(2, 6)}`;
@@ -6,16 +11,12 @@ export const utils = {
 
   clamp: (v, min, max) => Math.max(min, Math.min(max, v)),
 
-  NODE_RULES: {
-    initial:   { maxInputs: 0, maxOutputs: Infinity },
-    transform: { maxInputs: 1, maxOutputs: 1        },
-    branch:    { maxInputs: 1, maxOutputs: Infinity  },
-    join:      { maxInputs: Infinity, maxOutputs: 1  },
-    output:    { maxInputs: Infinity, maxOutputs: 0  },
-  },
-
   getRules(type) {
-    return this.NODE_RULES[type] ?? { maxInputs: Infinity, maxOutputs: Infinity };
+    const meta = getNodeMeta(type);
+    return {
+      maxInputs: meta.maxInputs ?? Infinity,
+      maxOutputs: meta.maxOutputs ?? Infinity,
+    };
   },
 
   canConnect(sourceId, targetId, nodes, edges) {
@@ -50,9 +51,34 @@ export const utils = {
     return edges.filter((e) => e.target === nodeId).length >= rule.maxInputs;
   },
 
+  getNodeAnchor(node, handleType = "source") {
+    if (!node) return { x: 0, y: 0 };
+    return {
+      x: node.x + node.width / 2,
+      y: handleType === "source" ? node.y + node.height : node.y,
+    };
+  },
+
+  getEdgeEndpoints(sourceNode, targetNode) {
+    return {
+      source: this.getNodeAnchor(sourceNode, "source"),
+      target: this.getNodeAnchor(targetNode, "target"),
+    };
+  },
+
+  getEdgeMidpoint(sourceNode, targetNode) {
+    const { source, target } = this.getEdgeEndpoints(sourceNode, targetNode);
+    return {
+      x: (source.x + target.x) / 2,
+      y: (source.y + target.y) / 2,
+    };
+  },
+
   bezierPath(x1, y1, x2, y2) {
-    const dx = Math.abs(x2 - x1) * 0.6;
-    return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    const direction = y2 >= y1 ? 1 : -1;
+    const dy = Math.abs(y2 - y1);
+    const bend = Math.max(36, dy * 0.55);
+    return `M${x1},${y1} C${x1},${y1 + bend * direction} ${x2},${y2 - bend * direction} ${x2},${y2}`;
   },
 
   pointInRect(px, py, rx, ry, rw, rh) {
@@ -77,10 +103,8 @@ export const utils = {
     let closest = null;
     let closestDist = Infinity;
 
-    const srcX = draggingNode.x + draggingNode.width;
-    const srcY = draggingNode.y + draggingNode.height / 2;
-    const tgtX = draggingNode.x;
-    const tgtY = draggingNode.y + draggingNode.height / 2;
+    const sourceAnchor = this.getNodeAnchor(draggingNode, "source");
+    const targetAnchor = this.getNodeAnchor(draggingNode, "target");
 
     nodes.forEach((n) => {
       if (n.id === draggingNode.id) return;
@@ -92,10 +116,13 @@ export const utils = {
       );
       if (alreadyConnected) return;
 
-      const nTgtX = n.x, nTgtY = n.y + n.height / 2;
-      const nSrcX = n.x + n.width, nSrcY = n.y + n.height / 2;
+      const nodeTargetAnchor = this.getNodeAnchor(n, "target");
+      const nodeSourceAnchor = this.getNodeAnchor(n, "source");
 
-      const distAsSource = Math.hypot(srcX - nTgtX, srcY - nTgtY);
+      const distAsSource = Math.hypot(
+        sourceAnchor.x - nodeTargetAnchor.x,
+        sourceAnchor.y - nodeTargetAnchor.y
+      );
       if (distAsSource < threshold && distAsSource < closestDist) {
         const { allowed } = this.canConnect(draggingNode.id, n.id, nodes, edges);
         if (allowed) {
@@ -104,7 +131,10 @@ export const utils = {
         }
       }
 
-      const distAsTarget = Math.hypot(tgtX - nSrcX, tgtY - nSrcY);
+      const distAsTarget = Math.hypot(
+        targetAnchor.x - nodeSourceAnchor.x,
+        targetAnchor.y - nodeSourceAnchor.y
+      );
       if (distAsTarget < threshold && distAsTarget < closestDist) {
         const { allowed } = this.canConnect(n.id, draggingNode.id, nodes, edges);
         if (allowed) {

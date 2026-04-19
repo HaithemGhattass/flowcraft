@@ -1,34 +1,33 @@
-import { useEffect } from "react";
-import { FlowProvider, useFlowStore } from "./store/flowStore";
+import { useEffect, useRef, useState } from "react";
+import "./App.css";
 import { Canvas } from "./components/Canvas/Canvas";
+import { Sidebar } from "./components/Controls/Sidebar";
+import { FlowProvider, useFlowStore } from "./store/flowStore";
 
-function ReactFlowClone() {
+function WorkflowEditor() {
   const { dispatch } = useFlowStore();
+  const canvasRef = useRef(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.matches("input, textarea")) return;
 
-      // delete
       if (e.key === "Delete" || e.key === "Backspace") {
         dispatch({ type: "DELETE_SELECTED" });
       }
 
-      // copy — Ctrl+C / Cmd+C
       if (e.key === "c" && (e.ctrlKey || e.metaKey)) {
         dispatch({ type: "COPY_SELECTED" });
       }
 
-      // paste — Ctrl+V / Cmd+V
       if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
         dispatch({ type: "PASTE" });
       }
 
-      // duplicate shortcut — Ctrl+D / Cmd+D
       if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault(); // prevent browser bookmark dialog
-        dispatch({ type: "COPY_SELECTED" });
-        dispatch({ type: "PASTE" });
+        e.preventDefault();
+        dispatch({ type: "DUPLICATE_SELECTED" });
       }
     };
 
@@ -36,23 +35,22 @@ function ReactFlowClone() {
     return () => window.removeEventListener("keydown", onKey);
   }, [dispatch]);
 
-  return <Canvas />;
+  return (
+    <div className={`editor-shell${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
+      <Sidebar
+        canvasRef={canvasRef}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((value) => !value)}
+      />
+      <Canvas canvasRef={canvasRef} />
+    </div>
+  );
 }
 
 export function App() {
   return (
     <FlowProvider>
-      <div
-        style={{
-          width: "100%",
-          height: "520px",
-          borderRadius: 12,
-          overflow: "hidden",
-          border: "1px solid #0d1a2e",
-        }}
-      >
-        <ReactFlowClone />
-      </div>
+      <WorkflowEditor />
     </FlowProvider>
   );
 }

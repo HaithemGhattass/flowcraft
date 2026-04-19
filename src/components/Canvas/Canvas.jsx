@@ -10,6 +10,7 @@ import { useViewport } from "../../hooks/useViewport";
 import { getNodeMeta } from "../../config/nodeTypes";
 import { useFlowStore } from "../../store/flowStore";
 import { utils } from "../../utils/utils";
+import { MiniMap } from "../MiniMap/MiniMap";
 
 function ConnectionLine({ connecting, nodes, viewport }) {
   if (!connecting || connecting.mx === undefined) return null;
@@ -301,6 +302,8 @@ export function Canvas({ canvasRef }) {
 
         <Toolbar dispatch={dispatch} />
         <Controls dispatch={dispatch} canvasRef={canvasRef} />
+        <MiniMap nodes={nodes} viewport={viewport} canvasW={size.w} canvasH={size.h} />
+
       </div>
     </section>
   );

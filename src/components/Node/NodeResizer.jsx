@@ -8,6 +8,7 @@ const HANDLES = [
 ];
 export function NodeResizer({ node, viewport, dispatch }) {
   const resizing = useRef(null);
+  const uiScale = Math.max(0.75, Math.min(viewport.zoom, 1.8));
 
   const onMouseDown = useCallback((e, handleId) => {
     e.stopPropagation();
@@ -61,20 +62,19 @@ export function NodeResizer({ node, viewport, dispatch }) {
           onMouseDown={(e) => onMouseDown(e, h.id)}
           style={{
             position: "absolute",
-            width: 8,
-            height: 8,
-            borderRadius: h.id.length === 1 ? 2 : 2, // edges vs corners
-            background: "#0f172a",
-            border: "1.5px solid #60a5fa",
+            width: 9 * uiScale,
+            height: 9 * uiScale,
+            borderRadius: 999,
+            background: "#ffffff",
+            border: `${1.5 * uiScale}px solid #4f7cff`,
             cursor: h.cursor,
             zIndex: 30,
-            // position from handle definition
             ...(h.top    !== undefined && { top:    h.top    }),
             ...(h.bottom !== undefined && { bottom: h.bottom }),
             ...(h.left   !== undefined && { left:   h.left   }),
             ...(h.right  !== undefined && { right:  h.right  }),
             ...(h.transform            && { transform: h.transform }),
-            boxShadow: "0 0 4px rgba(96,165,250,0.4)",
+            boxShadow: `0 ${8 * uiScale}px ${18 * uiScale}px rgba(79, 124, 255, 0.16)`,
           }}
         />
       ))}
